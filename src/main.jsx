@@ -11,6 +11,7 @@ import HomePage from './pages/HomePage';
 import ObjekWisata from './pages/ObjekWisata';
 import Kuliner from './pages/Kuliner';
 import ProfilePage from './pages/ProfilePage';
+import AdminDashboard from './pages/Admin/AdminDashboard'; // Import Admin
 
 // Import Komponen Navigasi
 import DesktopNavbar from './components/navbar/DesktopNavbar';
@@ -23,7 +24,7 @@ function AppRoot() {
   const [authPage, setAuthPage] = useState('login');
   const [currentPage, setCurrentPage] = useState('home');
 
-  // Cek Session User (Login/Logout)
+  // Cek Session User
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -38,7 +39,7 @@ function AppRoot() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Cek Setting Dark Mode saat aplikasi dimuat
+  // Cek Setting Dark Mode
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
@@ -67,7 +68,10 @@ function AppRoot() {
       case 'home': return <HomePage />;
       case 'wisata': return <ObjekWisata />;
       case 'kuliner': return <Kuliner />;
-      case 'profile': return <ProfilePage onLogout={handleLogout} />;
+      case 'profile': 
+        return <ProfilePage onLogout={handleLogout} onGoToAdmin={() => setCurrentPage('admin')} />;
+      case 'admin': 
+        return <AdminDashboard onBack={() => setCurrentPage('profile')} />;
       default: return <HomePage />;
     }
   };
@@ -75,7 +79,7 @@ function AppRoot() {
   // 1. Tampilkan Splash Screen
   if (showSplash) return <SplashScreen onComplete={handleSplashComplete} />;
 
-  // 2. Jika Belum Login, Tampilkan Halaman Auth
+  // 2. Jika Belum Login
   if (!session) {
     if (authPage === 'login') {
       return (
@@ -93,16 +97,24 @@ function AppRoot() {
     }
   }
 
-  // 3. Aplikasi Utama (Sudah Login) - Dark Mode Ready
+  // 3. Aplikasi Utama
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      <DesktopNavbar currentPage={currentPage} onNavigate={handleNavigation} />
+      
+      {/* Sembunyikan Navbar jika sedang di halaman Admin */}
+      {currentPage !== 'admin' && (
+        <DesktopNavbar currentPage={currentPage} onNavigate={handleNavigation} />
+      )}
       
       <main className="min-h-screen pb-20 md:pb-0">
         {renderCurrentPage()}
       </main>
       
-      <MobileNavbar currentPage={currentPage} onNavigate={handleNavigation} />
+      {/* Sembunyikan Navbar Mobile jika sedang di halaman Admin */}
+      {currentPage !== 'admin' && (
+        <MobileNavbar currentPage={currentPage} onNavigate={handleNavigation} />
+      )}
+
       <PWABadge />
     </div>
   );
