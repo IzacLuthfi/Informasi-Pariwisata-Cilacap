@@ -10,8 +10,9 @@ import RegisterPage from './pages/Auth/RegisterPage';
 import HomePage from './pages/HomePage';
 import ObjekWisata from './pages/ObjekWisata';
 import Kuliner from './pages/Kuliner';
+import BudayaPage from './pages/Budaya'; // <-- Import Baru
 import ProfilePage from './pages/ProfilePage';
-import AdminDashboard from './pages/Admin/AdminDashboard'; // Import Admin
+import AdminDashboard from './pages/Admin/AdminDashboard';
 
 // Import Komponen Navigasi
 import DesktopNavbar from './components/navbar/DesktopNavbar';
@@ -68,6 +69,7 @@ function AppRoot() {
       case 'home': return <HomePage />;
       case 'wisata': return <ObjekWisata />;
       case 'kuliner': return <Kuliner />;
+      case 'budaya': return <BudayaPage />; // <-- Route Baru
       case 'profile': 
         return <ProfilePage onLogout={handleLogout} onGoToAdmin={() => setCurrentPage('admin')} />;
       case 'admin': 

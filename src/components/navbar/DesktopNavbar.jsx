@@ -4,7 +4,8 @@ export default function DesktopNavbar({ currentPage, onNavigate }) {
   const navItems = [
     { id: 'home', label: 'Beranda' },
     { id: 'wisata', label: 'Objek Wisata' }, 
-    { id: 'kuliner', label: 'Kuliner' },     
+    { id: 'kuliner', label: 'Kuliner' },
+    { id: 'budaya', label: 'Budaya' },     
     { id: 'profile', label: 'Profil' }
   ];
 

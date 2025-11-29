@@ -6,10 +6,12 @@ import HomeHero from '../components/home/HomeHero';
 import CategoryScroll from '../components/home/CategoryScroll';
 import TrendingWisata from '../components/home/TrendingWisata';
 import KulinerScroll from '../components/home/KulinerScroll';
+import BudayaScroll from '../components/home/BudayaScroll'; // Komponen Budaya
 
-// --- Import Komponen Detail (PENTING untuk fitur klik) ---
+// --- Import Komponen Detail (Untuk fitur klik) ---
 import WisataDetail from '../components/wisata/WisataDetail';
 import KulinerDetail from '../components/kuliner/KulinerDetail';
+import BudayaDetail from '../components/budaya/BudayaDetail';
 
 // --- Import Icons ---
 import { Loader2, X, Clock, Ticket, MapPin, Info } from 'lucide-react';
@@ -18,6 +20,7 @@ export default function HomePage() {
   // --- STATE MANAGEMENT ---
   const [wisataList, setWisataList] = useState([]);
   const [kulinerList, setKulinerList] = useState([]);
+  const [budayaList, setBudayaList] = useState([]); // State Data Budaya
   const [loading, setLoading] = useState(true);
 
   // State Filter & Search
@@ -30,29 +33,34 @@ export default function HomePage() {
   // State Navigasi Detail (Switch View)
   const [detailWisataId, setDetailWisataId] = useState(null);
   const [detailKulinerId, setDetailKulinerId] = useState(null);
+  const [detailBudayaData, setDetailBudayaData] = useState(null); // State Detail Budaya
 
   // --- 1. FETCH DATA DARI SUPABASE ---
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Ambil data Wisata
-        const { data: wisataData, error: errWisata } = await supabase
+        // 1. Ambil data Wisata (Semua, nanti difilter)
+        const { data: wisataData } = await supabase
           .from('wisata')
-          .select('*');
+          .select('*')
+          .order('id', { ascending: false });
         
-        if (errWisata) throw errWisata;
-
-        // Ambil data Kuliner (Limit 10 biar scrollnya enak)
-        const { data: kulinerData, error: errKuliner } = await supabase
+        // 2. Ambil data Kuliner (Limit 10 untuk scroll)
+        const { data: kulinerData } = await supabase
           .from('kuliner')
           .select('*')
           .limit(10);
 
-        if (errKuliner) throw errKuliner;
+        // 3. Ambil data Budaya (Semua data)
+        const { data: budayaData } = await supabase
+          .from('budaya')
+          .select('*')
+          .order('id', { ascending: true });
 
         if (wisataData) setWisataList(wisataData);
         if (kulinerData) setKulinerList(kulinerData);
+        if (budayaData) setBudayaList(budayaData);
 
       } catch (error) {
         console.error("Gagal mengambil data:", error.message);
@@ -64,25 +72,21 @@ export default function HomePage() {
     fetchData();
   }, []);
 
-  // --- 2. LOGIKA FILTER (Kategori + Search) ---
+  // --- 2. LOGIKA FILTER WISATA (Kategori + Search) ---
   const filteredWisata = wisataList.filter(item => {
-    // Normalisasi data biar gak error kalau null
     const itemName = item.name ? item.name.toLowerCase() : '';
     const itemLocation = item.location ? item.location.toLowerCase() : '';
     const itemCategory = item.category || '';
     const query = searchQuery.toLowerCase();
 
-    // Cek Kategori
     const matchCategory = selectedCategory === 'Semua' || itemCategory === selectedCategory;
-
-    // Cek Search (Nama atau Lokasi)
     const matchSearch = itemName.includes(query) || itemLocation.includes(query);
 
     return matchCategory && matchSearch;
   });
 
-  // Ambil 6 item teratas untuk bagian "Trending"
-  const displayWisata = filteredWisata.slice(0, 6);
+  // Ambil 5 item teratas untuk bagian "Trending" agar layout pas
+  const displayWisata = filteredWisata.slice(0, 5);
 
 
   // --- 3. RENDERING KONDISIONAL (DETAIL VIEW) ---
@@ -113,6 +117,19 @@ export default function HomePage() {
     );
   }
 
+  // Jika User Klik Budaya -> Tampilkan Detail Budaya
+  if (detailBudayaData) {
+     return (
+        <BudayaDetail 
+            data={detailBudayaData} 
+            onBack={() => { 
+                setDetailBudayaData(null); 
+                window.scrollTo(0,0); 
+            }} 
+        />
+     );
+  }
+
   // Jika Loading Data Awal
   if (loading) {
     return (
@@ -126,7 +143,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 pb-20 transition-colors duration-300">
       
-      {/* Hero Section (Search Bar Terkoneksi) */}
+      {/* 1. Hero Section (Search Bar) */}
       <HomeHero 
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
@@ -134,7 +151,7 @@ export default function HomePage() {
 
       <div className="relative z-20 -mt-10 md:-mt-16 space-y-10 max-w-7xl mx-auto">
         
-        {/* Kategori Cepat */}
+        {/* 2. Kategori Cepat */}
         <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t border-white/50 dark:border-slate-700 py-6 rounded-t-3xl md:rounded-3xl md:shadow-lg md:mx-4 transition-colors duration-300">
           <CategoryScroll 
             selectedCategory={selectedCategory} 
@@ -142,11 +159,11 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Section: Trending Wisata */}
+        {/* 3. Trending Wisata */}
         {displayWisata.length > 0 ? (
           <TrendingWisata 
             featuredWisata={displayWisata} 
-            onItemClick={(id) => setDetailWisataId(id)} // <-- Aksi Klik
+            onItemClick={(id) => setDetailWisataId(id)} 
           />
         ) : (
           <div className="text-center py-10 text-slate-400">
@@ -154,15 +171,27 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Section: Kuliner Scroll */}
-        <div className="bg-slate-50 dark:bg-slate-900/50 py-4">
+        {/* 4. Section Budaya (Scroll Horizontal) */}
+        {/* Data diambil dari 'budayaList' */}
+        <BudayaScroll 
+            budayaList={budayaList} 
+            onItemClick={(id) => {
+                // Cari data objek lengkap berdasarkan ID untuk dikirim ke detail
+                const selected = budayaList.find(b => b.id === id);
+                setDetailBudayaData(selected);
+            }} 
+        />
+
+        {/* 5. Section Kuliner (Scroll Horizontal) */}
+        {/* Data diambil dari 'kulinerList' */}
+        <div className="bg-slate-50 dark:bg-slate-900/50 py-4 border-t border-slate-100 dark:border-slate-800">
             <KulinerScroll 
               featuredKuliner={kulinerList} 
-              onItemClick={(id) => setDetailKulinerId(id)} // <-- Aksi Klik
+              onItemClick={(id) => setDetailKulinerId(id)} 
             />
         </div>
 
-        {/* Section: Banner Promosi */}
+        {/* 6. Banner Promosi */}
         <div className="px-4">
           <div className="bg-gradient-to-r from-emerald-600 to-teal-500 rounded-2xl p-6 md:p-8 flex items-center justify-between text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden">
             {/* Hiasan Blur */}

@@ -1,7 +1,5 @@
 import { MapPin, ArrowUpRight } from 'lucide-react';
-
-// IMPORT GAMBAR LOKAL
-import defaultImage from '../../assets/pantai.jpg'; 
+// Jangan lupa import gambar default
 
 export default function TrendingWisata({ featuredWisata, onItemClick }) {
   return (
@@ -13,20 +11,23 @@ export default function TrendingWisata({ featuredWisata, onItemClick }) {
         </div>
       </div>
 
+      {/* Grid Layout: Pas untuk 5 Item */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {featuredWisata.map((item, index) => (
+        {featuredWisata.slice(0, 5).map((item, index) => (
           <div 
             key={item.id}
             onClick={() => onItemClick(item.id)}
             className={`group relative h-64 md:h-80 rounded-3xl overflow-hidden cursor-pointer shadow-lg ${
+              // Item pertama (index 0) akan memanjang 2 kolom
               index === 0 ? 'md:col-span-2' : ''
             }`}
           >
-            {/* Background Image GANTI KE STATIS */}
+            {/* Background Image */}
             <img 
-              src={defaultImage} 
+              src={item.image_url || defaultImage} 
               alt={item.name} 
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              onError={(e) => { e.target.src = defaultImage; }}
             />
             
             {/* Gradient Overlay */}
