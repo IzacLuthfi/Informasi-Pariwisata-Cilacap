@@ -18,3 +18,9 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+@keyframes scan {
+  0% { top: 0%; }
+  50% { top: 100%; }
+  100% { top: 0%; }
+}

@@ -1,4 +1,5 @@
 import { Star } from 'lucide-react';
+import defaultImage from '../../assets/pantai.jpg'; 
 
 export default function KulinerScroll({ featuredKuliner, onItemClick }) {
   return (
@@ -18,14 +19,20 @@ export default function KulinerScroll({ featuredKuliner, onItemClick }) {
             <div className="h-32 overflow-hidden relative">
               {/* Image GANTI KE STATIS */}
               <img 
-              src={item.image_url || defaultImage} 
-              alt={item.name} 
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-              onError={(e) => { e.target.src = defaultImage; }}
-          />
+                src={item.image_url || defaultImage} 
+                alt={item.name} 
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                onError={(e) => { e.target.src = defaultImage; }}
+              />
               <div className="absolute top-2 left-2 bg-white/90 px-2 py-1 rounded-lg flex items-center shadow-sm">
                 <Star className="w-3 h-3 text-amber-500 fill-current mr-1" />
-                <span className="text-xs font-bold text-slate-800">4.9</span>
+                
+                {/* --- UPDATE DISINI: Rating Dinamis --- */}
+                <span className="text-xs font-bold text-slate-800">
+                  {item.rating || 'New'}
+                </span>
+                {/* ----------------------------------- */}
+                
               </div>
             </div>
             

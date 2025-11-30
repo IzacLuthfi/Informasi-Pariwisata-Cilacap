@@ -6,7 +6,7 @@ import { Search, Loader2, AlertCircle, Grid, Utensils, Coffee, ShoppingBag } fro
 import KulinerGrid from '../components/kuliner/KulinerGrid';
 import KulinerDetail from '../components/kuliner/KulinerDetail';
 import Pagination from '../components/common/Pagination';
-import CategoryFilter from '../components/common/CategoryFilter'; // Komponen Kategori Baru
+import CategoryFilter from '../components/common/CategoryFilter'; 
 
 export default function Kuliner() {
   // --- STATE ---
@@ -16,14 +16,14 @@ export default function Kuliner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // State Detail View (PENTING)
+  // State Detail View
   const [selectedKulinerId, setSelectedKulinerId] = useState(null);
 
   // State Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8; // 8 Data per halaman
 
-  // Definisi Kategori dengan Ikon & Warna
+  // Definisi Kategori
   const categories = [
     { name: 'Semua', icon: Grid, gradient: 'from-slate-600 to-slate-800', shadow: 'shadow-slate-500/30' },
     { name: 'Makanan Berat', icon: Utensils, gradient: 'from-orange-500 to-amber-400', shadow: 'shadow-orange-500/30' },
@@ -36,7 +36,6 @@ export default function Kuliner() {
     fetchKuliner();
   }, []);
 
-  // Reset halaman saat filter berubah
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCategory]);
@@ -44,13 +43,41 @@ export default function Kuliner() {
   const fetchKuliner = async () => {
     setLoading(true);
     try {
-      let { data, error } = await supabase
+      // 1. Ambil Data Kuliner
+      let { data: kulinerData, error: errKuliner } = await supabase
         .from('kuliner')
         .select('*')
-        .order('id', { ascending: false }); // Data terbaru di atas
+        .order('id', { ascending: false });
       
-      if (error) throw error;
-      setKulinerList(data || []);
+      if (errKuliner) throw errKuliner;
+
+      // 2. Ambil Data Review (Hanya Rating) untuk Kuliner
+      const { data: reviewsData, error: errReviews } = await supabase
+        .from('reviews')
+        .select('item_id, rating')
+        .eq('item_type', 'kuliner'); // Filter khusus kuliner
+
+      if (errReviews) throw errReviews;
+
+      // 3. Gabungkan Rating ke Data Kuliner
+      const mergedData = kulinerData.map(item => {
+        // Cari semua review untuk item ini
+        const itemReviews = reviewsData.filter(r => r.item_id === item.id);
+        
+        // Hitung Rata-rata
+        const totalRating = itemReviews.reduce((sum, r) => sum + r.rating, 0);
+        const avgRating = itemReviews.length > 0 
+            ? (totalRating / itemReviews.length).toFixed(1) 
+            : 'New'; // Jika belum ada review, tampilkan 'New'
+
+        return { 
+            ...item, 
+            rating: avgRating, 
+            total_reviews: itemReviews.length 
+        };
+      });
+
+      setKulinerList(mergedData || []);
     } catch (err) {
       console.error('Error:', err);
       setError('Gagal memuat data kuliner.');
@@ -72,13 +99,14 @@ export default function Kuliner() {
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const currentData = filteredKuliner.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  // --- TAMPILAN DETAIL (JIKA ADA ID YANG DIPILIH) ---
+  // --- TAMPILAN DETAIL ---
   if (selectedKulinerId) {
     return (
       <KulinerDetail 
         kulinerId={selectedKulinerId} 
         onBack={() => { 
             setSelectedKulinerId(null); 
+            fetchKuliner(); // Refresh data saat kembali agar rating terupdate
             window.scrollTo(0, 0); 
         }} 
       />
@@ -152,7 +180,7 @@ export default function Kuliner() {
              {/* GRID KULINER */}
              <KulinerGrid 
                kulinerList={currentData} 
-               onItemClick={(id) => setSelectedKulinerId(id)} // <-- Event Klik Penting
+               onItemClick={(id) => setSelectedKulinerId(id)} 
              />
              
              {/* PAGINATION */}

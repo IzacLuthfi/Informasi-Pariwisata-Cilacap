@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { 
-  User, Settings, LogOut, Heart, Map, Edit3, ChevronRight, 
+  User, Settings, LogOut, Heart, Edit3, ChevronRight, 
   HelpCircle, Shield, Camera, Loader2, X, Save, Lock, 
-  Bell, Mail, Key, Bookmark, MapPin as IconMap, Grid, LayoutDashboard 
+  Bell, Mail, Key, Bookmark, MapPin as IconMap, Grid, LayoutDashboard, Ticket 
 } from 'lucide-react';
 import defaultImage from '../assets/pantai.jpg'; 
 
-// IMPORT KOMPONEN BARU
+// Import Komponen
 import ProfileDetailView from '../components/profile/ProfileDetailView';
+import TicketList from '../components/profile/TicketList';
 
 export default function ProfilePage({ onLogout, onGoToAdmin }) {
-  // --- STATE MANAGEMENT ---
+  // --- STATE ---
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -25,24 +26,27 @@ export default function ProfilePage({ onLogout, onGoToAdmin }) {
   const fileInputRef = useRef(null);
   const [isNotifEnabled, setIsNotifEnabled] = useState(false);
 
-  // State Bookmark & Favorite
+  // State Data
   const [savedItems, setSavedItems] = useState([]);
-  const [activeTab, setActiveTab] = useState('bookmark');
-  const [stats, setStats] = useState({ bookmark: 0, favorite: 0 });
-
-  // STATE BARU: Item yang diklik untuk dilihat detailnya
+  const [activeTab, setActiveTab] = useState('bookmark'); 
+  const [stats, setStats] = useState({ bookmark: 0, favorite: 0, ticket: 0 });
   const [selectedItem, setSelectedItem] = useState(null);
 
+  // --- INITIAL LOAD ---
   useEffect(() => {
     getProfile();
     if (Notification.permission === 'granted') setIsNotifEnabled(true);
   }, []);
 
+  // --- RELOAD DATA SAAT PROFIL / TAB BERUBAH ---
   useEffect(() => {
-    if (profile) getSavedItems();
-  }, [profile, activeTab]);
+    if (profile) {
+        fetchStats();     // Hitung jumlah (Bookmark/Fav/Tiket)
+        fetchContent();   // Ambil list item
+    }
+  }, [profile, activeTab]); // Jalan setiap ganti tab
 
-  // --- LOGIKA UTAMA ---
+  // 1. AMBIL PROFIL
   const getProfile = async () => {
     try {
       setLoading(true);
@@ -60,15 +64,50 @@ export default function ProfilePage({ onLogout, onGoToAdmin }) {
     } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
-  const getSavedItems = async () => {
+  // 2. HITUNG STATISTIK (JUMLAH) - DIPISAH BIAR AKURAT
+  const fetchStats = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { count: countBookmark } = await supabase.from('user_interactions').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('interaction_type', 'bookmark');
-    const { count: countFav } = await supabase.from('user_interactions').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('interaction_type', 'favorite');
-    setStats({ bookmark: countBookmark || 0, favorite: countFav || 0 });
+    // Hitung Bookmark
+    const { count: bm } = await supabase
+        .from('user_interactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('interaction_type', 'bookmark');
 
-    const { data: interactions } = await supabase.from('user_interactions').select('*').eq('user_id', user.id).eq('interaction_type', activeTab);
+    // Hitung Favorite
+    const { count: fav } = await supabase
+        .from('user_interactions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('interaction_type', 'favorite');
+
+    // Hitung Tiket
+    const { count: tik } = await supabase
+        .from('tickets')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+    
+    setStats({ 
+        bookmark: bm || 0, 
+        favorite: fav || 0, 
+        ticket: tik || 0 
+    });
+  };
+
+  // 3. AMBIL KONTEN LIST (SESUAI TAB)
+  const fetchContent = async () => {
+    if (activeTab === 'ticket') return; // Tiket diurus komponen TicketList
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: interactions } = await supabase
+        .from('user_interactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('interaction_type', activeTab);
 
     if (!interactions || interactions.length === 0) {
         setSavedItems([]);
@@ -81,28 +120,34 @@ export default function ProfilePage({ onLogout, onGoToAdmin }) {
         const { data: detail } = await supabase.from(tableName).select('*').eq('id', item.item_id).single();
         
         if (detail) {
-            // Normalisasi data agar seragam
             items.push({ 
                 id: detail.id,
-                name: detail.name || detail.title, // Handle Budaya (title)
-                location: detail.location || 'Cilacap (Budaya)', 
+                name: detail.name || detail.title,
+                location: detail.location || 'Cilacap', 
                 category: detail.category,
                 image_url: detail.image_url,
-                type: tableName // Penting untuk DetailView
+                type: tableName
             });
         }
     }
     setSavedItems(items);
   };
 
-  // ... (Fungsi Upload, Edit, Password, Notif TETAP SAMA - tidak saya tulis ulang agar hemat tempat, isinya sama persis)
+  // --- HANDLERS ---
+  const handleBackFromDetail = () => {
+    setSelectedItem(null);
+    window.scrollTo(0,0);
+    // Refresh data saat kembali (supaya kalau di-unlove, langsung hilang)
+    fetchStats();
+    fetchContent();
+  };
+
   const handleAvatarUpload = async (event) => { try { setUploading(true); const file = event.target.files[0]; if(!file) return; const { data: { user } } = await supabase.auth.getUser(); const fileExt = file.name.split('.').pop(); const fileName = `${Math.random()}.${fileExt}`; const filePath = `${user.id}/${fileName}`; await supabase.storage.from('avatars').upload(filePath, file); const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath); const updates = { id: user.id, avatar_url: publicUrl, email: user.email, updated_at: new Date() }; await supabase.from('profiles').upsert(updates); setProfile(prev => ({ ...prev, ...updates })); alert('Foto berhasil diupdate!'); } catch(e) { alert(e.message); } finally { setUploading(false); } };
   const updateProfileName = async () => { try { setUploading(true); const { data: { user } } = await supabase.auth.getUser(); const updates = { id: user.id, full_name: fullName, email: user.email, updated_at: new Date() }; await supabase.from('profiles').upsert(updates); setProfile(prev => ({ ...prev, full_name: fullName })); setActiveModal(null); alert('Profil berhasil diperbarui!'); } catch(e) { alert(e.message); } finally { setUploading(false); } };
   const updatePassword = async () => { try { setUploading(true); const { data: { user } } = await supabase.auth.getUser(); const { error: verifyError } = await supabase.auth.signInWithPassword({ email: user.email, password: oldPassword }); if (verifyError) throw new Error("Password lama salah!"); const { error: updateError } = await supabase.auth.updateUser({ password: newPassword }); if (updateError) throw updateError; setActiveModal(null); setOldPassword(''); setNewPassword(''); alert('Password berhasil diubah!'); } catch(e) { alert(e.message); } finally { setUploading(false); } };
-  const toggleNotifications = async () => { if (!isNotifEnabled) { const p = await Notification.requestPermission(); if (p === 'granted') { setIsNotifEnabled(true); new Notification("Pariwisata Cilacap", { body: "Notifikasi aktif!" }); } else alert("Izin ditolak."); } else setIsNotifEnabled(false); };
+  const toggleNotifications = async () => { if (!isNotifEnabled) { const p = await Notification.requestPermission(); if (p === 'granted') { setIsNotifEnabled(true); new Notification("Info", { body: "Notifikasi aktif!" }); } else alert("Izin ditolak."); } else setIsNotifEnabled(false); };
 
   const renderModalContent = () => {
-     // ... (Isi modal sama persis dengan sebelumnya)
      switch (activeModal) {
         case 'edit': return (<div className="space-y-4"><h3 className="text-lg font-bold text-slate-800 dark:text-white">Edit Profil</h3><div><label className="text-xs text-slate-500 font-bold uppercase">Nama Lengkap</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full mt-1 p-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 dark:bg-slate-700 dark:text-white dark:border-slate-600" /></div><button onClick={updateProfileName} disabled={uploading} className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-emerald-700 transition-colors">{uploading ? <Loader2 className="animate-spin" /> : <Save className="w-4 h-4" />} Simpan</button></div>);
         case 'security': return (<div className="space-y-4"><h3 className="text-lg font-bold text-slate-800 dark:text-white">Keamanan</h3><div><label className="text-xs text-slate-500 font-bold uppercase">Password Lama</label><div className="relative"><Key className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" /><input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} className="w-full mt-1 pl-10 p-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 dark:bg-slate-700 dark:text-white dark:border-slate-600" placeholder="Password saat ini" /></div></div><div><label className="text-xs text-slate-500 font-bold uppercase">Password Baru</label><div className="relative"><Lock className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" /><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full mt-1 pl-10 p-3 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 dark:bg-slate-700 dark:text-white dark:border-slate-600" placeholder="Min 6 karakter" /></div></div><button onClick={updatePassword} disabled={uploading || newPassword.length < 6} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-slate-900 transition-colors">{uploading ? <Loader2 className="animate-spin" /> : <Shield className="w-4 h-4" />} Update Password</button></div>);
@@ -112,35 +157,26 @@ export default function ProfilePage({ onLogout, onGoToAdmin }) {
      }
   };
 
-  // --- TAMPILAN UTAMA ---
-  
-  // 1. Jika ada item dipilih, tampilkan DETAIL VIEW
+  // --- RENDER DETAIL VIEW ---
   if (selectedItem) {
-    return (
-      <ProfileDetailView 
-        item={selectedItem} 
-        onBack={() => { 
-            setSelectedItem(null); 
-            window.scrollTo(0,0); 
-        }} 
-      />
-    );
+    return <ProfileDetailView item={selectedItem} onBack={handleBackFromDetail} />;
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900"><Loader2 className="w-8 h-8 text-emerald-500 animate-spin" /></div>;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24 dark:bg-slate-900 transition-colors duration-300">
-      {/* Header */}
+      {/* Banner */}
       <div className="relative h-60 w-full overflow-hidden">
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2070&auto=format&fit=crop")' }}>
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-emerald-900/20 to-emerald-900/60" />
         </div>
       </div>
 
-      {/* Profile Content */}
+      {/* Content */}
       <div className="px-4 relative z-10 -mt-20 max-w-xl mx-auto">
         <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl overflow-hidden transition-colors duration-300">
+          {/* Avatar */}
           <div className="flex flex-col items-center pt-8 pb-6 px-6 text-center border-b border-slate-50 dark:border-slate-700">
             <div className="relative group">
               <div className="w-24 h-24 rounded-full p-1 bg-white dark:bg-slate-700 shadow-lg">
@@ -156,24 +192,23 @@ export default function ProfilePage({ onLogout, onGoToAdmin }) {
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{profile?.email}</p>
           </div>
 
+          {/* Tabs */}
           <div className="flex border-b border-slate-100 dark:border-slate-700">
-            <button onClick={() => setActiveTab('bookmark')} className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'bookmark' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10' : 'text-slate-400'}`}><Bookmark className="w-4 h-4" /> Disimpan ({stats.bookmark})</button>
-            <button onClick={() => setActiveTab('favorite')} className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'favorite' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-50/50 dark:bg-pink-900/10' : 'text-slate-400'}`}><Heart className="w-4 h-4" /> Disukai ({stats.favorite})</button>
+            <button onClick={() => setActiveTab('bookmark')} className={`flex-1 py-4 text-xs md:text-sm font-bold flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-colors ${activeTab === 'bookmark' ? 'text-emerald-600 border-b-2 border-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/10' : 'text-slate-400'}`}><Bookmark className="w-4 h-4" /> Simpan ({stats.bookmark})</button>
+            <button onClick={() => setActiveTab('favorite')} className={`flex-1 py-4 text-xs md:text-sm font-bold flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-colors ${activeTab === 'favorite' ? 'text-pink-500 border-b-2 border-pink-500 bg-pink-50/50 dark:bg-pink-900/10' : 'text-slate-400'}`}><Heart className="w-4 h-4" /> Suka ({stats.favorite})</button>
+            <button onClick={() => setActiveTab('ticket')} className={`flex-1 py-4 text-xs md:text-sm font-bold flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 transition-colors ${activeTab === 'ticket' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50 dark:bg-blue-900/10' : 'text-slate-400'}`}><Ticket className="w-4 h-4" /> Tiket ({stats.ticket})</button>
           </div>
 
-          {/* List Item yang Disimpan */}
+          {/* List Items */}
           <div className="p-4 bg-slate-50/50 dark:bg-slate-900/50 min-h-[200px]">
-            {savedItems.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 flex flex-col items-center"><Grid className="w-10 h-10 mb-2 opacity-20" /><p className="text-xs">Belum ada item {activeTab === 'bookmark' ? 'disimpan' : 'disukai'}.</p></div>
+            {activeTab === 'ticket' ? (
+                <TicketList isActive={true} />
+            ) : savedItems.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 flex flex-col items-center"><Grid className="w-10 h-10 mb-2 opacity-20" /><p className="text-xs">Belum ada item {activeTab}.</p></div>
             ) : (
                 <div className="space-y-3">
                     {savedItems.map((item, idx) => (
-                        <div 
-                            key={idx} 
-                            // --- EVENT KLIK ITEM ---
-                            onClick={() => setSelectedItem(item)}
-                            className="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm flex gap-3 items-center border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                        >
+                        <div key={idx} onClick={() => setSelectedItem(item)} className="bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm flex gap-3 items-center border border-slate-100 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                             <img src={item.image_url || defaultImage} className="w-16 h-16 rounded-lg object-cover" alt="Thumb" onError={(e) => e.target.src = defaultImage} />
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between"><h4 className="font-bold text-slate-800 dark:text-white truncate text-sm">{item.name}</h4><span className="text-[10px] px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded uppercase">{item.type}</span></div>
@@ -186,7 +221,7 @@ export default function ProfilePage({ onLogout, onGoToAdmin }) {
           </div>
         </div>
 
-        {/* Menu List */}
+        {/* Menu */}
         <div className="mt-6 space-y-4">
              {isAdmin && (
                <button onClick={onGoToAdmin} className="w-full flex items-center justify-between p-4 bg-slate-900 text-white rounded-2xl shadow-lg hover:bg-slate-800 transition-colors">
@@ -209,7 +244,7 @@ export default function ProfilePage({ onLogout, onGoToAdmin }) {
         <div className="text-center text-slate-300 text-xs py-6">Versi Aplikasi 1.0.0</div>
       </div>
 
-      {/* Modal Overlay */}
+      {/* Modal */}
       {activeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-3xl p-6 relative shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-700">

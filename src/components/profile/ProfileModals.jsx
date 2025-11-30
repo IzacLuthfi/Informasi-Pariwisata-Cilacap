@@ -1,4 +1,4 @@
-import { X, Loader2, Save, Lock, Key, Shield, Moon, Sun, Bell, HelpCircle, Mail } from 'lucide-react';
+import { X, Loader2, Save, Lock, Key, Shield, Bell, HelpCircle, Mail } from 'lucide-react';
 
 export default function ProfileModals({ 
   activeModal, onClose, 
@@ -52,8 +52,13 @@ export default function ProfileModals({
           <div className="space-y-6">
             <h3 className="text-lg font-bold text-slate-800">Pengaturan</h3>
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-              <div className="flex items-center gap-3"><Bell className={`w-5 h-5 ${isNotifEnabled ? 'text-emerald-500' : 'text-slate-600'}`} /><span className="text-sm font-medium text-slate-700">Notifikasi</span></div>
-              <button onClick={toggleNotifications} className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${isNotifEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}><div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform duration-300 ${isNotifEnabled ? 'left-7' : 'left-1'}`} /></button>
+              <div className="flex items-center gap-3">
+                <Bell className={`w-5 h-5 ${isNotifEnabled ? 'text-emerald-500' : 'text-slate-600'}`} />
+                <span className="text-sm font-medium text-slate-700">Notifikasi</span>
+              </div>
+              <button onClick={toggleNotifications} className={`w-12 h-6 rounded-full relative transition-colors duration-300 ${isNotifEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform duration-300 ${isNotifEnabled ? 'left-7' : 'left-1'}`} />
+              </button>
             </div>
             <p className="text-xs text-slate-400 text-center pt-2">{isNotifEnabled ? "Anda akan menerima update." : "Aktifkan untuk dapat info terbaru."}</p>
           </div>

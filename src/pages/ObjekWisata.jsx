@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Search, Loader2, AlertCircle, Grid, Waves, Landmark, Mountain, Drama } from 'lucide-react';
+import { Search, Loader2, AlertCircle, Grid, Waves, Landmark, Mountain, Drama, Map } from 'lucide-react';
 
 // Import Komponen
 import WisataGrid from '../components/wisata/WisataGrid';
 import WisataDetail from '../components/wisata/WisataDetail';
 import Pagination from '../components/common/Pagination';
-import CategoryFilter from '../components/common/CategoryFilter'; // Import Komponen Kategori Keren
+import CategoryFilter from '../components/common/CategoryFilter'; 
 
 export default function ObjekWisata() {
   // --- STATE ---
@@ -23,7 +23,7 @@ export default function ObjekWisata() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 9; 
 
-  // --- DEFINISI KATEGORI DENGAN ICON & WARNA ---
+  // --- DEFINISI KATEGORI ---
   const categories = [
     { name: 'Semua', icon: Grid, gradient: 'from-slate-600 to-slate-800', shadow: 'shadow-slate-500/30' },
     { name: 'Pantai', icon: Waves, gradient: 'from-blue-500 to-cyan-400', shadow: 'shadow-blue-500/30' },
@@ -45,13 +45,41 @@ export default function ObjekWisata() {
   const fetchWisata = async () => {
     setLoading(true);
     try {
-      let { data, error } = await supabase
+      // 1. Ambil Data Wisata
+      const { data: wisataData, error: errWisata } = await supabase
         .from('wisata')
         .select('*')
         .order('id', { ascending: false });
       
-      if (error) throw error;
-      setWisataList(data || []);
+      if (errWisata) throw errWisata;
+
+      // 2. Ambil Data Review (Hanya Rating) untuk Wisata
+      const { data: reviewsData, error: errReviews } = await supabase
+        .from('reviews')
+        .select('item_id, rating')
+        .eq('item_type', 'wisata');
+
+      if (errReviews) throw errReviews;
+
+      // 3. Gabungkan Rating ke Data Wisata
+      const mergedData = wisataData.map(item => {
+        // Cari semua review untuk item ini
+        const itemReviews = reviewsData.filter(r => r.item_id === item.id);
+        
+        // Hitung Rata-rata
+        const totalRating = itemReviews.reduce((sum, r) => sum + r.rating, 0);
+        const avgRating = itemReviews.length > 0 
+            ? (totalRating / itemReviews.length).toFixed(1) 
+            : 'New'; // Jika belum ada review, tampilkan 'New'
+
+        return { 
+            ...item, 
+            rating: avgRating, 
+            total_reviews: itemReviews.length 
+        };
+      });
+
+      setWisataList(mergedData || []);
     } catch (err) {
       console.error('Error:', err);
       setError('Gagal memuat data wisata.');
@@ -80,6 +108,7 @@ export default function ObjekWisata() {
         wisataId={selectedWisataId} 
         onBack={() => { 
             setSelectedWisataId(null); 
+            fetchWisata(); // Refresh data saat kembali (agar rating terupdate jika baru memberi ulasan)
             window.scrollTo(0,0); 
         }} 
       />
@@ -116,7 +145,7 @@ export default function ObjekWisata() {
             </div>
           </div>
 
-          {/* --- MENGGUNAKAN CATEGORY FILTER (Ubah dari tombol manual ke komponen) --- */}
+          {/* Kategori Filter */}
           <CategoryFilter 
              categories={categories} 
              selectedCategory={selectedCategory} 
@@ -152,6 +181,10 @@ export default function ObjekWisata() {
                   {filteredWisata.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredWisata.length)}
                 </span> dari <span className="font-bold text-slate-800 dark:text-white">{filteredWisata.length}</span> destinasi
               </p>
+              <div className="hidden md:flex items-center text-xs text-slate-400 gap-1">
+                <Map className="w-3 h-3" />
+                <span>Database Supabase</span>
+              </div>
             </div>
             
             {/* Grid Wisata */}

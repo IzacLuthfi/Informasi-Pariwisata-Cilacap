@@ -3,8 +3,6 @@ import { User, Settings, LogOut, HelpCircle, Shield, LayoutDashboard, ChevronRig
 export default function ProfileMenu({ isAdmin, onGoToAdmin, onOpenModal, onLogout }) {
   return (
     <div className="px-4 max-w-xl mx-auto mt-6 space-y-4">
-        
-        {/* Tombol Admin (Hanya jika admin) */}
         {isAdmin && (
           <button onClick={onGoToAdmin} className="w-full flex items-center justify-between p-4 bg-slate-900 text-white rounded-2xl shadow-lg hover:bg-slate-800 transition-colors">
              <div className="flex gap-3 items-center text-sm font-bold">
@@ -15,7 +13,6 @@ export default function ProfileMenu({ isAdmin, onGoToAdmin, onOpenModal, onLogou
           </button>
         )}
 
-        {/* Akun Saya */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden border border-slate-100 dark:border-slate-700">
            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-700/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Akun Saya</div>
            <button onClick={() => onOpenModal('edit')} className="w-full flex justify-between items-center p-4 border-b border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
@@ -28,7 +25,6 @@ export default function ProfileMenu({ isAdmin, onGoToAdmin, onOpenModal, onLogou
            </button>
         </div>
 
-        {/* Lainnya */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden border border-slate-100 dark:border-slate-700">
            <div className="px-4 py-2 bg-slate-50 dark:bg-slate-700/50 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lainnya</div>
            <button onClick={() => onOpenModal('settings')} className="w-full flex justify-between items-center p-4 border-b border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
@@ -41,12 +37,9 @@ export default function ProfileMenu({ isAdmin, onGoToAdmin, onOpenModal, onLogou
            </button>
         </div>
 
-        {/* Logout */}
         <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 p-4 bg-white dark:bg-slate-800 rounded-2xl text-red-500 font-bold shadow-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-all border border-red-100 dark:border-red-900/30">
            <LogOut className="w-5 h-5" /> Keluar Akun
         </button>
-
-        <div className="text-center text-slate-300 text-xs py-6">Versi Aplikasi 1.0.0</div>
     </div>
   );
 }

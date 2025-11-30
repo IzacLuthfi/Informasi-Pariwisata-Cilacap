@@ -1,4 +1,4 @@
-import { Camera, Loader2, Map, Heart, Camera as CameraIcon } from 'lucide-react';
+import { Camera, Loader2 } from 'lucide-react';
 
 export default function ProfileHeader({ profile, uploading, onUploadClick, fileInputRef, onFileChange }) {
   return (
@@ -29,9 +29,13 @@ export default function ProfileHeader({ profile, uploading, onUploadClick, fileI
             </div>
             <h2 className="text-xl font-bold text-slate-800 dark:text-white mt-4">{profile?.full_name || "Pengguna"}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{profile?.email}</p>
+            
+            {profile?.role === 'admin' && (
+               <span className="mt-2 inline-block px-3 py-1 bg-slate-800 text-white text-[10px] font-bold rounded-full uppercase">Administrator</span>
+            )}
           </div>
 
-          {/* Static Stats Grid (Hiasan) */}
+          {/* Static Stats Grid */}
           <div className="grid grid-cols-3 divide-x divide-slate-50 dark:divide-slate-700 py-4">
             <div className="flex flex-col items-center p-2"><span className="text-lg font-bold text-slate-800 dark:text-white">0</span><span className="text-[10px] text-slate-400 uppercase">Trip</span></div>
             <div className="flex flex-col items-center p-2"><span className="text-lg font-bold text-slate-800 dark:text-white">0</span><span className="text-[10px] text-slate-400 uppercase">Disukai</span></div>
