@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Search, Loader2, AlertCircle, Grid, Utensils, Coffee, ShoppingBag } from 'lucide-react';
+import { Search, Loader2, AlertCircle, Grid, Utensils, Coffee, ShoppingBag, ArrowUpDown } from 'lucide-react';
 
 // Import Komponen
 import KulinerGrid from '../components/kuliner/KulinerGrid';
@@ -21,7 +21,10 @@ export default function Kuliner() {
 
   // State Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 8; // 8 Data per halaman
+  const ITEMS_PER_PAGE = 8; 
+
+  // STATE SORTING
+  const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'rating_desc' | 'rating_asc'
 
   // Definisi Kategori
   const categories = [
@@ -38,7 +41,7 @@ export default function Kuliner() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, sortBy]);
 
   const fetchKuliner = async () => {
     setLoading(true);
@@ -51,28 +54,27 @@ export default function Kuliner() {
       
       if (errKuliner) throw errKuliner;
 
-      // 2. Ambil Data Review (Hanya Rating) untuk Kuliner
+      // 2. Ambil Data Review
       const { data: reviewsData, error: errReviews } = await supabase
         .from('reviews')
         .select('item_id, rating')
-        .eq('item_type', 'kuliner'); // Filter khusus kuliner
+        .eq('item_type', 'kuliner');
 
       if (errReviews) throw errReviews;
 
-      // 3. Gabungkan Rating ke Data Kuliner
+      // 3. Gabungkan Rating
       const mergedData = kulinerData.map(item => {
-        // Cari semua review untuk item ini
         const itemReviews = reviewsData.filter(r => r.item_id === item.id);
-        
-        // Hitung Rata-rata
         const totalRating = itemReviews.reduce((sum, r) => sum + r.rating, 0);
-        const avgRating = itemReviews.length > 0 
-            ? (totalRating / itemReviews.length).toFixed(1) 
-            : 'New'; // Jika belum ada review, tampilkan 'New'
+        
+        // Hitung rata-rata (simpan ratingValue sebagai angka untuk sorting)
+        const avgRatingNum = itemReviews.length > 0 ? (totalRating / itemReviews.length) : 0;
+        const avgRatingStr = itemReviews.length > 0 ? avgRatingNum.toFixed(1) : 'New';
 
         return { 
             ...item, 
-            rating: avgRating, 
+            rating: avgRatingStr,      
+            ratingValue: avgRatingNum, 
             total_reviews: itemReviews.length 
         };
       });
@@ -86,13 +88,32 @@ export default function Kuliner() {
     }
   };
 
-  // --- LOGIKA FILTER ---
-  const filteredKuliner = kulinerList.filter(item => {
-    const matchCategory = selectedCategory === 'Semua' || item.category === selectedCategory;
-    const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        item.location.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCategory && matchSearch;
-  });
+  // --- LOGIKA FILTER & SORTING ---
+  const getProcessedData = () => {
+    // 1. Filter
+    let data = kulinerList.filter(item => {
+        const matchCategory = selectedCategory === 'Semua' || item.category === selectedCategory;
+        const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            item.location.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchCategory && matchSearch;
+    });
+
+    // 2. Sorting (Client Side)
+    if (sortBy === 'rating_desc') {
+        // Rating Tertinggi (B - A)
+        data.sort((a, b) => b.ratingValue - a.ratingValue);
+    } else if (sortBy === 'rating_asc') {
+        // Rating Terendah (A - B) <-- LOGIKA BARU
+        data.sort((a, b) => a.ratingValue - b.ratingValue);
+    } else {
+        // Default: Terbaru (ID)
+        data.sort((a, b) => b.id - a.id);
+    }
+
+    return data;
+  };
+
+  const filteredKuliner = getProcessedData();
 
   // --- LOGIKA PAGINATION ---
   const totalPages = Math.ceil(filteredKuliner.length / ITEMS_PER_PAGE);
@@ -106,7 +127,7 @@ export default function Kuliner() {
         kulinerId={selectedKulinerId} 
         onBack={() => { 
             setSelectedKulinerId(null); 
-            fetchKuliner(); // Refresh data saat kembali agar rating terupdate
+            fetchKuliner(); 
             window.scrollTo(0, 0); 
         }} 
       />
@@ -141,7 +162,6 @@ export default function Kuliner() {
             </div>
           </div>
 
-          {/* Kategori Filter Baru */}
           <CategoryFilter 
              categories={categories} 
              selectedCategory={selectedCategory} 
@@ -169,12 +189,29 @@ export default function Kuliner() {
 
         {!loading && !error && (
            <>
-             <div className="flex items-center justify-between mb-6">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Menampilkan <span className="font-bold text-slate-800 dark:text-white">
                     {filteredKuliner.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredKuliner.length)}
                   </span> dari <span className="font-bold text-slate-800 dark:text-white">{filteredKuliner.length}</span> kuliner
                 </p>
+
+                {/* TOMBOL SORTING */}
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400 font-bold uppercase">Urutkan:</span>
+                    <div className="relative">
+                        <select 
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="appearance-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 py-2 pl-4 pr-8 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-sm"
+                        >
+                            <option value="newest">Terbaru</option>
+                            <option value="rating_desc">Rating Tertinggi ⭐</option>
+                            <option value="rating_asc">Rating Terendah 👎</option>
+                        </select>
+                        <ArrowUpDown className="w-4 h-4 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+                    </div>
+                </div>
              </div>
 
              {/* GRID KULINER */}
